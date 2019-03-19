@@ -13,8 +13,8 @@ let Consts = {
     },
 }
 
-const PAGE_SIZE = 6;
-const ITEM_HEIGHT = 65;
+const PAGE_SIZE = 7;
+const ITEM_HEIGHT = 75;
 const ITEM_WIDTH = 530;
 
 /**
@@ -37,6 +37,7 @@ class RankListRenderer {
         this.totalPage = 0;
         this.currPage = 0;
         this.gameDatas = [];    //https://developers.weixin.qq.com/minigame/dev/document/open-api/data/UserGameData.html
+        this.myRank = 0;
         this.init();
     }
 
@@ -113,48 +114,52 @@ class RankListRenderer {
     }
 
     fetchGroupData(shareTicket) {
-        //取出群同玩成员数据
-        wx.getGroupCloudStorage({
-            shareTicket,
-            keyList: [
-                Consts.OpenDataKeys.ScoreKey,
-            ],
-            success: res => {
-                console.log("wx.getGroupCloudStorage success", res);
-                const dataLen = res.data.length;
-                this.gameDatas = dataSorter(res.data);
-                this.currPage = 0;
-                this.totalPage = Math.ceil(dataLen / PAGE_SIZE);
-                if (dataLen) {
-                    this.showPagedRanks(0);
-                }
-            },
-            fail: res => {
-                console.log("wx.getGroupCloudStorage fail", res);
-            },
-        });
+        if (this.gameDatas.length <= 0) {
+            //取出群同玩成员数据
+            wx.getGroupCloudStorage({
+                shareTicket,
+                keyList: [
+                    Consts.OpenDataKeys.ScoreKey,
+                ],
+                success: res => {
+                    console.log("wx.getGroupCloudStorage success", res);
+                    const dataLen = res.data.length;
+                    this.gameDatas = dataSorter(res.data);
+                    this.currPage = 0;
+                    this.totalPage = Math.ceil(dataLen / PAGE_SIZE);
+                    if (dataLen) {
+                        this.showPagedRanks(0);
+                    }
+                },
+                fail: res => {
+                    console.log("wx.getGroupCloudStorage fail", res);
+                },
+            });
+        }
     }
 
     fetchFriendData() {
-        //取出所有好友数据
-        wx.getFriendCloudStorage({
-            keyList: [
-                Consts.OpenDataKeys.ScoreKey,
-            ],
-            success: res => {
-                console.log("wx.getFriendCloudStorage success", res);
-                const dataLen = res.data.length;
-                this.gameDatas = dataSorter(res.data);
-                this.currPage = 0;
-                this.totalPage = Math.ceil(dataLen / PAGE_SIZE);
-                if (dataLen) {
-                    this.showPagedRanks(0);
-                }
-            },
-            fail: res => {
-                console.log("wx.getFriendCloudStorage fail", res);
-            },
-        });
+        if (this.gameDatas.length <= 0) {
+            //取出所有好友数据
+            wx.getFriendCloudStorage({
+                keyList: [
+                    Consts.OpenDataKeys.ScoreKey,
+                ],
+                success: res => {
+                    console.log("wx.getFriendCloudStorage success", res);
+                    const dataLen = res.data.length;
+                    this.gameDatas = dataSorter(res.data);
+                    this.currPage = 0;
+                    this.totalPage = Math.ceil(dataLen / PAGE_SIZE);
+                    if (dataLen) {
+                        this.showPagedRanks(0);
+                    }
+                },
+                fail: res => {
+                    console.log("wx.getFriendCloudStorage fail", res);
+                },
+            });
+        }
     }
 
     showPagedRanks(page) {
@@ -163,20 +168,18 @@ class RankListRenderer {
         // const pageLen = pagedData.length;
         const pageLen = 20;
 
-        this.ctx.clearRect(0, 0, 500, 460); //清空渲染区域，准备渲染数据
+        this.ctx.clearRect(0, 0, 530, 750); //清空渲染区域，准备渲染数据
 
-        let ct = this.ctx;
-        var bg = wx.createImage();
-        bg.src = "wx-sub/image/bg_main.png";
 
-        bg.onload = function () {
-            console.log("信息", bg);
-            ct.drawImage(bg, 0, 0, 530, 750);
-        }
-
-        for (let i = 0, len = 6; i < len; i++) {
-            this.drawRankItem(this.ctx, i, pageStart + i + 1, pagedData[0], pageLen);
-        }
+        let img = wx.createImage();
+        let promise = this._setPromise(img, "wx-sub/image/bg_main.png");
+        Promise.all([promise]).then(() => {
+            this.ctx.drawImage(img, 0, 0, 530, 750);
+            for (let i = 0, len = PAGE_SIZE; i < len; i++) {
+                this.drawRankItem(this.ctx, i, pageStart + i + 1, pagedData[0], pageLen);
+                console.log("好友数据信息", pagedData[0]);
+            }
+        });
     }
 
     //canvas原点在左上角
@@ -187,65 +190,77 @@ class RankListRenderer {
         const kvData = data.KVDataList.find(kvData => kvData.key === Consts.OpenDataKeys.ScoreKey);
         const score = kvData ? kvData.value : 0;
         const itemGapY = ITEM_HEIGHT * (index + 1);
-        let ct = this.ctx;
+
         //绘制单项背景
         let img = wx.createImage();
-        img.src = "wx-sub/image/item.png";
-        img.onload = () => {
-            ct.drawImage(img, 0, itemGapY, ITEM_WIDTH, ITEM_HEIGHT);
-        }
+        let promise = this._setPromise(img, "wx-sub/image/item.png");
+        Promise.all([promise]).then(() => {
+            this.ctx.drawImage(img, 0, itemGapY, ITEM_WIDTH, ITEM_HEIGHT);
+            //名次
+            if (rank < 4) {
+                const rankImg = wx.createImage();
+                rankImg.src = `wx-sub/image/icon${rank}.png`;
+                rankImg.onload = () => {
+                    ctx.drawImage(rankImg, 50, 20 + itemGapY, 30, 38);
+                };
+            } else {
+                ctx.fillStyle = "#A53838";
+                ctx.textAlign = "right";
+                ctx.baseLine = "middle";
+                ctx.font = "35px Helvetica";
+                ctx.fillText(`${rank}`, 65 + (10 * index / 10), 44 + itemGapY);
+            }
 
-        //名次
-        if (rank < 4) {
-            const rankImg = wx.createImage();
-            rankImg.src = `wx-sub/image/icon${rank}.png`;
-            rankImg.onload = () => {
-                ctx.drawImage(rankImg, 50, 20 + itemGapY, 30, 38);
-            };
-        } else {
-            ctx.fillStyle = "#D8AD51";
-            ctx.textAlign = "right";
+            //头像
+            const avatarX = 100;
+            const avatarY = 10 + itemGapY;
+            const avatarW = 48;
+            const avatarH = 48;
+            this.drawAvatar(ctx, avatarUrl, avatarX, avatarY, avatarW, avatarH);
+
+            //名字
+            ctx.fillStyle = "#A53838";
+            ctx.textAlign = "middle";
             ctx.baseLine = "middle";
-            ctx.font = "40px Helvetica";
-            ctx.fillText(`${rank}`, 30 + (10 * index / 10), 44 + itemGapY);
-        }
+            ctx.font = "20px Helvetica";
 
-        
+            ctx.fillText(nick, 300, 40 + itemGapY);
 
-        //头像
-        const avatarX = 100;
-        const avatarY = 10 + itemGapY;
-        const avatarW = 48;
-        const avatarH = 48;
-        this.drawAvatar(ctx, avatarUrl, avatarX, avatarY, avatarW, avatarH);
+            //分数
+            ctx.fillStyle = "#A53838";
+            ctx.textAlign = "middle";
+            ctx.baseLine = "middle";
+            ctx.font = "24px Arial";
+            ctx.fillText(`${score}分`, 400, 40 + itemGapY);
 
-        //名字
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "middle";
-        ctx.baseLine = "middle";
-        ctx.font = "20px Helvetica";
-
-        ctx.fillText(nick, 250, 40 + itemGapY);
-
-        //分数
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "middle";
-        ctx.baseLine = "middle";
-        ctx.font = "24px Arial";
-        ctx.fillText(`${score}分`, 380, 40 + itemGapY);
-
-        // //分隔线
-        // const lineImg = wx.createImage();
-        // lineImg.src = 'subdomain/images/llk_x.png';
-        // lineImg.onload = () => {
-        //     if(index + 1 > pageLen)
-        //     {
-        //         return;
-        //     }
-        //     ctx.drawImage(lineImg, 14, 120 + itemGapY, 720, 1);
-        // };
+            // //分隔线
+            // const lineImg = wx.createImage();
+            // lineImg.src = 'subdomain/images/llk_x.png';
+            // lineImg.onload = () => {
+            //     if(index + 1 > pageLen)
+            //     {
+            //         return;
+            //     }
+            //     ctx.drawImage(lineImg, 14, 120 + itemGapY, 720, 1);
+            // };
+        });
     }
+    _setPromise(img, src) {
+        return new Promise((resolve, reject) => {
+            img.src = src;
+            if (!src) {
+                resolve()
+            }
+            img.onload = () => {
+                resolve();
+            }
+        }).then(() => {
+            console.log('背景图加载完毕');
+        }).catch((err) => {
+            console.log('背景图加载失败：', err);
+        });
 
+    }
     //绘制头像
     drawAvatar(ctx, avatarUrl, x, y, w, h) {
         ctx.fillStyle = "#ffffff";
