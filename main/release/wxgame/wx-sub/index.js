@@ -13,7 +13,7 @@ let Consts = {
     },
 }
 
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 6;
 const ITEM_HEIGHT = 75;
 const ITEM_WIDTH = 530;
 
@@ -56,6 +56,7 @@ class RankListRenderer {
             switch (msg.action) {
                 case Consts.DomainAction.FriendRank:
                     this.fetchFriendData();
+                    this._drawBackground();
                     break;
 
                 case Consts.DomainAction.UpdateScore:
@@ -87,6 +88,37 @@ class RankListRenderer {
         });
     }
 
+    //绘制不变化的内容
+    _drawBackground() {
+        let img1 = wx.createImage();
+        let img2 = wx.createImage();
+        let img3 = wx.createImage();
+        let img4 = wx.createImage();
+
+        let promise1 = this._setPromise(img1, "wx-sub/image/bg_main.png");
+        let promise2 = this._setPromise(img2, "wx-sub/image/title.png");
+        let promise3 = this._setPromise(img3, "wx-sub/image/bg_myrank.png");
+        let promise4 = this._setPromise(img4, "wx-sub/image/myrank.png");
+
+        Promise.all([promise1, promise2, promise3, promise4]).then(() => {
+            this.ctx.drawImage(img1, 0, 0, 530, 750);
+            this.ctx.drawImage(img2, 190, 10, 161, 49);
+            this.ctx.drawImage(img3, 120, 680, 291, 62);
+            this.ctx.drawImage(img4, 150, 692, 154, 32);
+
+            this.ctx.fillStyle = "#3470B7";
+            this.ctx.textAlign = "middle";
+            this.ctx.baseLine = "middle";
+            this.ctx.font = "30px Helvetica";
+
+            if (this.myRank) {
+                this.ctx.fillText("" + this.myRank, 300, 720);
+            } else {
+                this.ctx.fillText("未上榜", 300, 720);
+            }
+
+        });
+    }
 
     //上传分数，如果分数比云端高则更新云端分数
     updateScore(score) {
@@ -163,23 +195,17 @@ class RankListRenderer {
     }
 
     showPagedRanks(page) {
+
         const pageStart = page * PAGE_SIZE;
-        const pagedData = this.gameDatas.slice(pageStart, pageStart + PAGE_SIZE);
-        // const pageLen = pagedData.length;
-        const pageLen = 20;
+        const pagedData = this.gameDatas.slice(pageStart, pageStart + PAGE_SIZE);//获取当前页的数据
+        const pageLen = pagedData.length;
 
-        this.ctx.clearRect(0, 0, 530, 750); //清空渲染区域，准备渲染数据
+        this.ctx.clearRect(18, ITEM_HEIGHT, 493, 445); //清空渲染区域，准备渲染数据
 
-
-        let img = wx.createImage();
-        let promise = this._setPromise(img, "wx-sub/image/bg_main.png");
-        Promise.all([promise]).then(() => {
-            this.ctx.drawImage(img, 0, 0, 530, 750);
-            for (let i = 0, len = PAGE_SIZE; i < len; i++) {
-                this.drawRankItem(this.ctx, i, pageStart + i + 1, pagedData[0], pageLen);
-                console.log("好友数据信息", pagedData[0]);
-            }
-        });
+        for (let i = 0, len = PAGE_SIZE; i < len; i++) {
+            this.drawRankItem(this.ctx, i, pageStart + i + 1, pagedData[0], pageLen);
+            // console.log("好友数据信息", pagedData[0]);
+        }
     }
 
     //canvas原点在左上角
@@ -190,7 +216,7 @@ class RankListRenderer {
         const kvData = data.KVDataList.find(kvData => kvData.key === Consts.OpenDataKeys.ScoreKey);
         const score = kvData ? kvData.value : 0;
         const itemGapY = ITEM_HEIGHT * (index + 1);
-
+        console.log("itemGrap", itemGapY);
         //绘制单项背景
         let img = wx.createImage();
         let promise = this._setPromise(img, "wx-sub/image/item.png");
@@ -223,7 +249,6 @@ class RankListRenderer {
             ctx.textAlign = "middle";
             ctx.baseLine = "middle";
             ctx.font = "20px Helvetica";
-
             ctx.fillText(nick, 300, 40 + itemGapY);
 
             //分数
@@ -261,6 +286,7 @@ class RankListRenderer {
         });
 
     }
+
     //绘制头像
     drawAvatar(ctx, avatarUrl, x, y, w, h) {
         ctx.fillStyle = "#ffffff";
